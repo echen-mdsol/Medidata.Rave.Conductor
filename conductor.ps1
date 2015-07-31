@@ -1,27 +1,27 @@
 $setupSession = {
-	Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
-	. C:\Github\Rave\Medidata.AdminProcess\deploy_tasks_dev.ps1
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+    . C:\Github\Rave\Medidata.AdminProcess\deploy_tasks_dev.ps1
 }
 
 $testThings = {
     $VerbosePreference = "continue"
-	hostname
-	Write-Host "Host"
-	Write-Output "Output"
-	Write-Verbose "Verbose"
-	Write-Error "Error Message"
-	Write-Warning "Warning"
-	Write-Debug "Debug"
+    hostname
+    Write-Host "Host"
+    Write-Output "Output"
+    Write-Verbose "Verbose"
+    Write-Error "Error Message"
+    Write-Warning "Warning"
+    Write-Debug "Debug"
     #Throw "Exception Message"
     Get-UICulture
 }
 
 function Invoke-ConductorCommands {
-	param($tasks)
-	
-	$sessions = Get-PSSession
-	$job = Invoke-Command -session $sessions {
-        param($script)
+    param($tasks)
+
+    $sessions = Get-PSSession
+    $job = Invoke-Command -session $sessions {
+    param($script)
 
         $scriptblock = [ScriptBlock]::Create($script)
         try {        
@@ -32,10 +32,10 @@ function Invoke-ConductorCommands {
         }
     } -ArgumentList ($tasks) -AsJob 
 	
-	Wait-Job $job | Out-Null
+    Wait-Job $job | Out-Null
 
-	$outputs = Receive-Job $job
-	$outputs | % { 
+    $outputs = Receive-Job $job
+    $outputs | % { 
          $_ >> c:\temp\$($_.PSComputerName).output 
     }
 
@@ -55,28 +55,28 @@ function Invoke-ConductorCommands-test {
 }
 
 $predeploy = {
-	itk stop
+    itk stop
 }
 
 function Invoke-Conductor {
-	param([string[]] $jsonDatabag)
-	
-	$nodes = @("node1","node2")
+    param([string[]] $jsonDatabag)
+
+    $nodes = @("node1","node2")
 
     $nodes | % { "" > C:\temp\$($_).output }
 
-	$sessions = New-PSSession -ComputerName $nodes
+    $sessions = New-PSSession -ComputerName $nodes
 
     try {
-	    Invoke-ConductorCommands $setupSession
-	    Invoke-ConductorCommands $testThings
-	    Invoke-ConductorCommands $predeploy
+        Invoke-ConductorCommands $setupSession
+        Invoke-ConductorCommands $testThings
+        Invoke-ConductorCommands $predeploy
     }
     catch {
         Write-Error "Something bad happened"
     }
     
-	Remove-PSSession $sessions	
+    Remove-PSSession $sessions	
 }
 
 
