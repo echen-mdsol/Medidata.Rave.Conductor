@@ -89,7 +89,6 @@ function Invoke-DeployWorkflow {
 
             itk -task unpack,config -role auto
             if (is-master) { itk -task unpack,config -role $db }
-            if (is-master) { validate-env-vars }
         }
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
