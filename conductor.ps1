@@ -5,7 +5,6 @@ param(
 $setupSession = {
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
     $DebugPreference = "continue"
-    . C:\Github\Rave\Medidata.AdminProcess\deploy_tasks_dev.ps1
 }
 
 $replacewritehost = {
