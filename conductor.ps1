@@ -64,7 +64,7 @@ function Get-NodeNames {
 $injectEnvironmentVariables = {
     # Set all environment variables based on the input JSON string
     $env:SITE_NAME="RaveProdTestSite"
-    $env:PACKAGE_DIR="\\hdcsharedmachine\packages\Rave\2015.2.0"
+    $env:PACKAGE_DIR="\\hdcsharedmachine\C$\packages\Rave\2015.2.0"
     $env:DEPLOY_ID ="yyyyMMddhhmmss-buildid"
     $env:RELEASE_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\release\$env:DEPLOY_ID"
     $env:ARTIFACTS_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\artifacts\$env:DEPLOY_ID"
