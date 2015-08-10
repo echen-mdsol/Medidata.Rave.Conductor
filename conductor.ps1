@@ -23,7 +23,7 @@ $replacewritehost = {
 }
 
 function Invoke-RemoteScriptInParallel {
-    param([PSSession[]] $sessions, [scriptblock] $script)
+    param([System.Management.Automation.Runspaces.PSSession[]] $sessions, [scriptblock] $script)
 
     $job = Invoke-Command -session $sessions {
         param($script)
