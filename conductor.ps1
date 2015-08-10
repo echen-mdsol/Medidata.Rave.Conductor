@@ -79,16 +79,17 @@ function Invoke-DeployWorkflow {
         Invoke-RemoteScriptInParallel -sessions $sessions -script $setupSession
         Invoke-RemoteScriptInParallel -sessions $sessions -script $injectEnvironmentVariables
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
+            # Download deployment script package
             New-Item -path $env:ARTIFACTS_DIR -type directory
-            Copy-Item "$env:PACKAGES_DIR\*.zip" "$env:ARTIFACTS_DIR"
-            New-Item -path "$env:RELEASE_DIR\Medidata.AdminProcess" -type directory
-            # Unzip deployment scripts
-            (new-object -com shell.application).namespace(\"$env:RELEASE_DIR\\Medidata.AdminProcess\").CopyHere((new-object -com shell.application).namespace(\"$env:ARTIFACTS_DIR\\Medidata.AdminProcess.zip\").Items(), 1556)
+            Copy-Item "$env:PACKAGES_DIR\Medidata.AdminProcess.zip" -Destination "$env:ARTIFACTS_DIR"
+
+            # Unzip deployment script package
+            (new-object -com shell.application).namespace(\"$env:RELEASE_DIR\Medidata.AdminProcess\").CopyHere((new-object -com shell.application).namespace(\"$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip\").Items(), 1556)
 
             . $env:RELEASE_DIR\\Medidata.Installation\\deploy_tasks_prod.ps1
 
-            itk -task unpack,config -role auto
-            if (is-master) { itk -task unpack,config -role $db }
+            itk -task download,unpack,config -role auto
+            if (is-master) { itk -task download,unpack,config -role $db }
         }
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
