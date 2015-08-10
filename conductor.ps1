@@ -61,6 +61,15 @@ function Get-NodeNames {
     return $nodes
 }
 
+$injectEnvironmentVariables = {
+    # Set all environment variables based on the input JSON string
+    $env:SITE_NAME="RaveProdTestSite"
+    $env:PACKAGE_DIR="\\hdcsharedmachine\packages\Rave\2015.2.0"
+    $env:DEPLOY_ID ="yyyyMMddhhmmss-buildid"
+    $env:RELEASE_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\release\$env:DEPLOY_ID"
+    $env:ARTIFACTS_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\artifacts\$env:DEPLOY_ID"
+}
+
 function Invoke-DeployWorkflow {
     $nodes = Get-NodeNames
     $sessions = New-PSSession -ComputerName $nodes
@@ -68,12 +77,32 @@ function Invoke-DeployWorkflow {
     try {
         Invoke-RemoteScriptInParallel -sessions $sessions -script $replacewritehost
         Invoke-RemoteScriptInParallel -sessions $sessions -script $setupSession
-        #Invoke-RemoteScriptInParallel $testThings
+        Invoke-RemoteScriptInParallel -sessions $sessions -script $injectEnvironmentVariables
+        Invoke-RemoteScriptInParallel -sessions $sessions -script {
+            New-Item -path $env:ARTIFACTS_DIR -type directory
+            Copy-Item "$env:PACKAGES_DIR\*.zip" "$env:ARTIFACTS_DIR"
+            New-Item -path "$env:RELEASE_DIR\Medidata.AdminProcess" -type directory
+            # Unzip deployment scripts
+            (new-object -com shell.application).namespace(\"$env:RELEASE_DIR\\Medidata.AdminProcess\").CopyHere((new-object -com shell.application).namespace(\"$env:ARTIFACTS_DIR\\Medidata.AdminProcess.zip\").Items(), 1556)
+
+            . $env:RELEASE_DIR\\Medidata.Installation\\deploy_tasks_prod.ps1
+
+            itk -task unpack,config -role auto
+            if (is-master) { itk -task unpack,config -role $db }
+            if (is-master) { validate-env-vars }
+        }
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
-            itk stop
-            #     itk uninstall
-            #     itk config, install, start
+            itk -task stop -role auto
+        }
+
+        Invoke-RemoteScriptInParallel -sessions $sessions -script {
+            if (is-master) { itk -task install -role $db }
+            itk -task uninstall,install -role auto
+        }
+
+        Invoke-RemoteScriptInParallel -sessions $sessions -script {
+            itk -task start -role auto
         }
     }
     catch {
