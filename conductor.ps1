@@ -18,23 +18,6 @@ $replacewritehost = {
     Invoke-Expression "function Write-Host { $content }"
 }
 
-$testThings = {
-    $VerbosePreference = "continue"
-    hostname
-    Write-Host "Host"
-    Write-Output "Output"
-    Write-Verbose "Verbose"
-    #Write-Error "Error Message"
-    Write-Warning "Warning"
-    Write-Debug "Debug"
-    Throw "Exception Message"
-    Get-UICulture
-}
-
-$predeploy = {
-    itk stop
-}
-
 function Invoke-RemoteScriptInParallel {
     param([PSSession[]] $sessions, [scriptblock] $script)
 
@@ -85,8 +68,6 @@ function Invoke-DeployWorkflow {
             #     itk uninstall
             #     itk config, install, start
         }
-
-
     }
     catch {
         Write-Host "Something bad happened."
