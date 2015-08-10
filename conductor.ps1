@@ -6,14 +6,14 @@ $setupSession = {
 
 $replacewritehost = {
     remove-item function:write-host -ea 0
-       
+
     # create a proxy for write-host
     $metaData = New-Object System.Management.Automation.CommandMetaData (Get-Command 'Microsoft.PowerShell.Utility\Write-Host')
     $proxy = [System.Management.Automation.ProxyCommand]::create($metaData)
 
     # change its behavior
-    $content = $proxy -replace '(\$steppablePipeline.Process)', 'Write-Debug (Out-String -inputobject $Object -stream); $1'  
-               
+    $content = $proxy -replace '(\$steppablePipeline.Process)', 'Write-Debug (Out-String -inputobject $Object -stream); $1'
+
     # load our version
     Invoke-Expression "function Write-Host { $content }"
 }
@@ -35,40 +35,38 @@ $predeploy = {
     itk stop
 }
 
-function Invoke-ConducutorCommand {
-    param($tasks)
+function Invoke-RemoteScriptInParallel {
+    param([PSSession[]] $sessions, [scriptblock] $script)
 
-    $sessions = Get-PSSession
-    
     $job = Invoke-Command -session $sessions {
-    param($tasks)
-        
-        $scriptblock = $ExecutionContext.InvokeCommand.NewScriptBlock($tasks)
-        try {        
+        param($script)
+
+        $scriptblock = $ExecutionContext.InvokeCommand.NewScriptBlock($script)
+        try {
             . $scriptblock *>&1
         }
         catch {
             Write-Output $_
             Write-Error $_
         }
-    } -ArgumentList ($tasks) -AsJob 
-	
+    } -ArgumentList ($script) -AsJob
+
     Wait-Job $job | Out-Null
 
     $outputs = Receive-Job $job
-    $outputs | % { 
-         $_ >> .\$($_.PSComputerName).output 
+    $outputs | % {
+        $_ >> .\$($_.PSComputerName).output
     }
 
     $exceptions = @()
     $job.ChildJobs | % { $_.Error | % { $exceptions += "$($_.OriginInfo.PSComputerName): $_" } }
-    
+
     Remove-Job $job | Out-Null
 
     if ($exceptions.count -gt 0) { throw $exceptions }
 }
 
-function Invoke-Conductor {
+function Invoke-DeployWorkflow {
     param([string[]] $jsonDatabag)
 
     $nodes = @("node1","node2")
@@ -78,14 +76,14 @@ function Invoke-Conductor {
     $sessions = New-PSSession -ComputerName $nodes
 
     try {
-        Invoke-ConducutorCommand $replacewritehost
-        Invoke-ConducutorCommand $setupSession 
-        #Invoke-ConducutorCommand $testThings       
-        
-        Invoke-ConducutorCommand {
-             itk stop
-        #     itk uninstall
-        #     itk config, install, start
+        Invoke-RemoteScriptInParallel -sessions $sessions -script $replacewritehost
+        Invoke-RemoteScriptInParallel -sessions $sessions -script $setupSession
+        #Invoke-RemoteScriptInParallel $testThings
+
+        Invoke-RemoteScriptInParallel -sessions $sessions -script {
+            itk stop
+            #     itk uninstall
+            #     itk config, install, start
         }
 
 
@@ -94,8 +92,8 @@ function Invoke-Conductor {
         Write-Host "Something bad happened."
         Write-Error $_
     }
-    
-    Remove-PSSession $sessions	
+
+    Remove-PSSession $sessions
 }
 
-Invoke-Conductor
+Invoke-DeployWorkflow
