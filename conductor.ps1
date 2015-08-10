@@ -86,7 +86,7 @@ function Invoke-DeployWorkflow {
             # Unzip deployment script package
             (new-object -com shell.application).namespace(\"$env:RELEASE_DIR\Medidata.AdminProcess\").CopyHere((new-object -com shell.application).namespace(\"$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip\").Items(), 1556)
 
-            . $env:RELEASE_DIR\\Medidata.Installation\\deploy_tasks_prod.ps1
+            . $env:RELEASE_DIR\Medidata.Installation\deploy_tasks_prod.ps1
 
             itk -task download,unpack,config -role auto
             if (is-master) { itk -task download,unpack,config -role $db }
