@@ -74,12 +74,10 @@ function Invoke-DeployWorkflow {
     $sessions = New-PSSession -ComputerName $nodes
 
     try {
-        Invoke-RemoteScriptInParallel -sessions $sessions -script {
-            # 0. Prepare node to run the Rave deployment scripts
-            & $replacewritehost
-            & $setupSession
-            & $injectEnvironmentVariables
-        }
+        # 0. Prepare node to run the Rave deployment scripts
+        Invoke-RemoteScriptInParallel -sessions $sessions -script $setupSession
+        Invoke-RemoteScriptInParallel -sessions $sessions -script $replacewritehost
+        Invoke-RemoteScriptInParallel -sessions $sessions -script $injectEnvironmentVariables
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
             # 1. Download deployment script package
