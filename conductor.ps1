@@ -75,33 +75,41 @@ function Invoke-DeployWorkflow {
     $sessions = New-PSSession -ComputerName $nodes
 
     try {
-        Invoke-RemoteScriptInParallel -sessions $sessions -script $replacewritehost
-        Invoke-RemoteScriptInParallel -sessions $sessions -script $setupSession
-        Invoke-RemoteScriptInParallel -sessions $sessions -script $injectEnvironmentVariables
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
-            # Download deployment script package
+            # 0. Prepare node to run the Rave deployment scripts
+            & $replacewritehost
+            & $setupSession
+            & $injectEnvironmentVariables
+        }
+
+        Invoke-RemoteScriptInParallel -sessions $sessions -script {
+            # 1. Download deployment script package
             New-Item -path $env:ARTIFACTS_DIR -type directory
             Copy-Item "$env:PACKAGES_DIR\Medidata.AdminProcess.zip" -Destination "$env:ARTIFACTS_DIR"
 
-            # Unzip deployment script package
+            # 2. Unzip deployment script package
             (new-object -com shell.application).namespace(\"$env:RELEASE_DIR\Medidata.AdminProcess\").CopyHere((new-object -com shell.application).namespace(\"$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip\").Items(), 1556)
 
             . $env:RELEASE_DIR\Medidata.AdminProcess\deploy_tasks_prod.ps1
 
+            # 3. Download, unpack and configure corresponding components on the underlying node
             itk -task download,unpack,config -role auto
             if (is-master) { itk -task download,unpack,config -role $db }
         }
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
+            # 4. Stop existing services on the underlying node
             itk -task stop -role auto
         }
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
+            # 5. Reinstall services on the udnerlying node
             if (is-master) { itk -task install -role $db }
             itk -task uninstall,install -role auto
         }
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
+            # 6. Start services on the underlying node
             itk -task start -role auto
         }
     }
