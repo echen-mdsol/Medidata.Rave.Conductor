@@ -1,3 +1,7 @@
+param(
+    [string] $jsonDatabag # TODO: Confirm with IT to decide the input contract
+)
+
 $setupSession = {
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
     $DebugPreference = "continue"
@@ -49,13 +53,16 @@ function Invoke-RemoteScriptInParallel {
     if ($exceptions.count -gt 0) { throw $exceptions }
 }
 
-function Invoke-DeployWorkflow {
-    param([string[]] $jsonDatabag)
-
+function Get-NodeNames {
     $nodes = @("node1","node2")
 
     $nodes | % { "" > .\$($_).output }
 
+    return $nodes
+}
+
+function Invoke-DeployWorkflow {
+    $nodes = Get-NodeNames
     $sessions = New-PSSession -ComputerName $nodes
 
     try {
