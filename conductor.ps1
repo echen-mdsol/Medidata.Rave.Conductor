@@ -7,6 +7,21 @@ $setupSession = {
     $DebugPreference = "continue"
 }
 
+function Get-LogDir {
+    "C:\LogFiles"
+}
+
+function Get-LogPath {
+    param([string]$name)
+
+    (Get-LogDir)"\\$name.log"
+}
+
+function Init-LogFiles {
+    param([string []] $nodes)
+    $nodes | % { New-Item (Get-LogPath $_) -type file -force } | Out-Null
+}
+
 function Invoke-DeployPhase {
     param([System.Management.Automation.Runspaces.PSSession[]] $session, [scriptblock] $script)
 
@@ -27,7 +42,7 @@ function Invoke-DeployPhase {
 
     $outputs = Receive-Job $job
     $outputs | % {
-        $_ >> .\$($_.PSComputerName).output
+        $_ >> (Get-LogPath $_.PSComputerName)
     }
 
     $exceptions = @()
@@ -40,9 +55,6 @@ function Invoke-DeployPhase {
 
 function Get-NodeNames {
     $nodes = @("node1","node2")
-
-    $nodes | % { "" > .\$($_).output }
-
     return $nodes
 }
 
@@ -76,6 +88,7 @@ $installDeploymentScripts = {
 
 function Invoke-DeployWorkflow {
     $nodes = Get-NodeNames
+    Init-Logfiles $nodes
     $sessions = New-PSSession -ComputerName $nodes
 
     try {
