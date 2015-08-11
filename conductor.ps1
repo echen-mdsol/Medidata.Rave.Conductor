@@ -75,7 +75,8 @@ $installDeploymentScripts = {
     if (-not (Test-path $packagePath)) { throw "Cannot find path '$packagePath'" }
 
     # Download deployment script package
-    New-Item $artifactPath -type file -force
+    New-Item $releaseDir -type directory -force | Out-Null
+    New-Item $artifactPath -type file -force | Out-Null
     Copy-Item $packagePath $artifactPath -force
 
     # Unzip deployment script package
@@ -89,6 +90,7 @@ $installDeploymentScripts = {
 function Invoke-DeployWorkflow {
     $nodes = Get-NodeNames
     Init-Logfiles $nodes
+
     $sessions = New-PSSession -ComputerName $nodes
 
     try {
