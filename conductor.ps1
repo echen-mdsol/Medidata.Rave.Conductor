@@ -61,7 +61,7 @@ $installDeploymentScripts = {
     $releaseDir = "$env:RELEASE_DIR\Medidata.AdminProcess"
 
     if (-not (Test-path $packagePath)) throw "Cannot find path '$packagePath'"
-    
+
     # Download deployment script package
     New-Item $artifactPath -type file -force
     Copy-Item $packagePath $artifactPath -force
@@ -107,7 +107,7 @@ function Invoke-DeployWorkflow {
         }
     }
     catch {
-        Write-Host "Something bad happened."
+        Write-Output "Something bad happened."
         Write-Error $_
     }
 
