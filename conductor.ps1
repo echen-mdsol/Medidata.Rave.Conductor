@@ -14,7 +14,7 @@ function Get-LogDir {
 function Get-LogPath {
     param([string]$name)
 
-    (Get-LogDir)"\\$name.log"
+    return "$(Get-LogDir)\$($name).log"
 }
 
 function Init-LogFiles {
@@ -55,7 +55,7 @@ function Invoke-DeployPhase {
 
 function Get-NodeNames {
     $nodes = @("node1","node2")
-    return $nodes
+    return ,$nodes
 }
 
 $injectEnvironmentVariables = {
@@ -72,7 +72,7 @@ $installDeploymentScripts = {
     $artifactPath = "$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip"
     $releaseDir = "$env:RELEASE_DIR\Medidata.AdminProcess"
 
-    if (-not (Test-path $packagePath)) throw "Cannot find path '$packagePath'"
+    if (-not (Test-path $packagePath)) { throw "Cannot find path '$packagePath'" }
 
     # Download deployment script package
     New-Item $artifactPath -type file -force
