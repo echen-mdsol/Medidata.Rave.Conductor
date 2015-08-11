@@ -69,6 +69,23 @@ $injectEnvironmentVariables = {
     $env:ARTIFACTS_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\artifacts\$env:DEPLOY_ID"
 }
 
+$installDeploymentScripts = {
+    $packagePath = "$env:PACKAGES_DIR\Medidata.AdminProcess.zip"
+    $artifactPath = "$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip"
+    $releaseDir = "$env:RELEASE_DIR\Medidata.AdminProcess"
+
+    # Download deployment script package
+    New-Item $artifactPath -type file -force
+    Copy-Item $packagePath $artifactPath -force
+
+    # Unzip deployment script package
+    $shell = new-object -com shell.application
+    $shell.namespace($releaseDir).CopyHere($shell.namespace($artifactPath).Items(), 1556)
+
+    # Import the deploy tasks
+    . $releaseDir\deploy_tasks_prod.ps1
+}
+
 function Invoke-DeployWorkflow {
     $nodes = Get-NodeNames
     $sessions = New-PSSession -ComputerName $nodes
@@ -78,37 +95,27 @@ function Invoke-DeployWorkflow {
         Invoke-RemoteScriptInParallel -sessions $sessions -script $setupSession
         Invoke-RemoteScriptInParallel -sessions $sessions -script $replacewritehost
         Invoke-RemoteScriptInParallel -sessions $sessions -script $injectEnvironmentVariables
+        Invoke-RemoteScriptInParallel -sessions $sessions -script $installDeploymentScripts
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
-            # 1. Download deployment script package
-            New-Item -path $env:ARTIFACTS_DIR -type directory
-            Copy-Item "$env:PACKAGES_DIR\Medidata.AdminProcess.zip" -Destination "$env:ARTIFACTS_DIR"
-
-            # 2. Unzip deployment script package
-            $shell = new-object -com shell.application
-            $zipFile = $shell.namespace("$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip")
-            $shell.namespace("$env:RELEASE_DIR\Medidata.AdminProcess").CopyHere($zipFile.Items(), 1556)
-
-            . $env:RELEASE_DIR\Medidata.AdminProcess\deploy_tasks_prod.ps1
-
-            # 3. Download, unpack and configure corresponding components on the underlying node
+            # 1. Download, unpack and configure corresponding components on the underlying node
             itk -task download,unpack,config -role auto
             if (is-master) { itk -task download,unpack,config -role $db }
         }
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
-            # 4. Stop existing services on the underlying node
+            # 2. Stop existing services on the underlying node
             itk -task stop -role auto
         }
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
-            # 5. Reinstall services on the udnerlying node
+            # 3. Reinstall services on the udnerlying node
             if (is-master) { itk -task install -role $db }
             itk -task uninstall,install -role auto
         }
 
         Invoke-RemoteScriptInParallel -sessions $sessions -script {
-            # 6. Start services on the underlying node
+            # 4. Start services on the underlying node
             itk -task start -role auto
         }
     }
