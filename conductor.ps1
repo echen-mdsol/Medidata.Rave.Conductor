@@ -7,20 +7,6 @@ $setupSession = {
     $DebugPreference = "continue"
 }
 
-$replacewritehost = {
-    remove-item function:write-host -ea 0
-
-    # create a proxy for write-host
-    $metaData = New-Object System.Management.Automation.CommandMetaData (Get-Command 'Microsoft.PowerShell.Utility\Write-Host')
-    $proxy = [System.Management.Automation.ProxyCommand]::create($metaData)
-
-    # change its behavior
-    $content = $proxy -replace '(\$steppablePipeline.Process)', 'Write-Debug (Out-String -inputobject $Object -stream); $1'
-
-    # load our version
-    Invoke-Expression "function Write-Host { $content }"
-}
-
 function Invoke-DeployPhase {
     param([System.Management.Automation.Runspaces.PSSession[]] $session, [scriptblock] $script)
 
@@ -64,7 +50,7 @@ $injectEnvironmentVariables = {
     # Set all environment variables based on the input JSON string
     $env:SITE_NAME="RaveProdTestSite"
     $env:PACKAGE_DIR="\\hdcsharedmachine\C$\packages\Rave\2015.2.0"
-    $env:DEPLOY_ID ="yyyyMMddhhmmss-buildid"
+    $env:DEPLOY_ID ="yyyyMMddhhmmss-buildid-increment"
     $env:RELEASE_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\release\$env:DEPLOY_ID"
     $env:ARTIFACTS_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\artifacts\$env:DEPLOY_ID"
 }
@@ -74,6 +60,8 @@ $installDeploymentScripts = {
     $artifactPath = "$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip"
     $releaseDir = "$env:RELEASE_DIR\Medidata.AdminProcess"
 
+    if (-not (Test-path $packagePath)) throw "Cannot find path '$packagePath'"
+    
     # Download deployment script package
     New-Item $artifactPath -type file -force
     Copy-Item $packagePath $artifactPath -force
@@ -93,7 +81,6 @@ function Invoke-DeployWorkflow {
     try {
         # 0. Prepare node to run the Rave deployment scripts
         Invoke-DeployPhase -session $sessions -script $setupSession
-        Invoke-DeployPhase -session $sessions -script $replacewritehost
         Invoke-DeployPhase -session $sessions -script $injectEnvironmentVariables
         Invoke-DeployPhase -session $sessions -script $installDeploymentScripts
 
