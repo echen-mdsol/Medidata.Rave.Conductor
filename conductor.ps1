@@ -85,7 +85,9 @@ function Invoke-DeployWorkflow {
             Copy-Item "$env:PACKAGES_DIR\Medidata.AdminProcess.zip" -Destination "$env:ARTIFACTS_DIR"
 
             # 2. Unzip deployment script package
-            (new-object -com shell.application).namespace(\"$env:RELEASE_DIR\Medidata.AdminProcess\").CopyHere((new-object -com shell.application).namespace(\"$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip\").Items(), 1556)
+            $shell = new-object -com shell.application
+            $zipFile = $shell.namespace("$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip")
+            $shell.namespace("$env:RELEASE_DIR\Medidata.AdminProcess").CopyHere($zipFile.Items(), 1556)
 
             . $env:RELEASE_DIR\Medidata.AdminProcess\deploy_tasks_prod.ps1
 
