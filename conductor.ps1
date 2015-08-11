@@ -3,7 +3,7 @@ param(
 )
 
 $setupSession = {
-    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+    Set-ExecutionPolicy -ExecutionPolicy Unrestricted
     $DebugPreference = "continue"
 }
 
