@@ -22,9 +22,9 @@ $replacewritehost = {
 }
 
 function Invoke-DeployPhase {
-    param([System.Management.Automation.Runspaces.PSSession[]] $sessions, [scriptblock] $script)
+    param([System.Management.Automation.Runspaces.PSSession[]] $session, [scriptblock] $script)
 
-    $job = Invoke-Command -session $sessions {
+    $job = Invoke-Command -session $session {
         param($script)
 
         $scriptblock = $ExecutionContext.InvokeCommand.NewScriptBlock($script)
@@ -92,29 +92,29 @@ function Invoke-DeployWorkflow {
 
     try {
         # 0. Prepare node to run the Rave deployment scripts
-        Invoke-DeployPhase -sessions $sessions -script $setupSession
-        Invoke-DeployPhase -sessions $sessions -script $replacewritehost
-        Invoke-DeployPhase -sessions $sessions -script $injectEnvironmentVariables
-        Invoke-DeployPhase -sessions $sessions -script $installDeploymentScripts
+        Invoke-DeployPhase -session $sessions -script $setupSession
+        Invoke-DeployPhase -session $sessions -script $replacewritehost
+        Invoke-DeployPhase -session $sessions -script $injectEnvironmentVariables
+        Invoke-DeployPhase -session $sessions -script $installDeploymentScripts
 
-        Invoke-DeployPhase -sessions $sessions -script {
+        Invoke-DeployPhase -session $sessions -script {
             # 1. Download, unpack and configure corresponding components on the underlying node
             itk -task download,unpack,config -role auto
             if (is-master) { itk -task download,unpack,config -role $db }
         }
 
-        Invoke-DeployPhase -sessions $sessions -script {
+        Invoke-DeployPhase -session $sessions -script {
             # 2. Stop existing services on the underlying node
             itk -task stop -role auto
         }
 
-        Invoke-DeployPhase -sessions $sessions -script {
+        Invoke-DeployPhase -session $sessions -script {
             # 3. Reinstall services on the udnerlying node
             if (is-master) { itk -task install -role $db }
             itk -task uninstall,install -role auto
         }
 
-        Invoke-DeployPhase -sessions $sessions -script {
+        Invoke-DeployPhase -session $sessions -script {
             # 4. Start services on the underlying node
             itk -task start -role auto
         }
