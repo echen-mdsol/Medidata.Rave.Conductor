@@ -3,29 +3,29 @@ param(
 )
 
 $setupSession = {
-    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+    Set-ExecutionPolicy -ExecutionPolicy Unrestricted
     $DebugPreference = "continue"
-    . C:\Github\Rave\Medidata.AdminProcess\deploy_tasks_dev.ps1
 }
 
-$replacewritehost = {
-    remove-item function:write-host -ea 0
-
-    # create a proxy for write-host
-    $metaData = New-Object System.Management.Automation.CommandMetaData (Get-Command 'Microsoft.PowerShell.Utility\Write-Host')
-    $proxy = [System.Management.Automation.ProxyCommand]::create($metaData)
-
-    # change its behavior
-    $content = $proxy -replace '(\$steppablePipeline.Process)', 'Write-Debug (Out-String -inputobject $Object -stream); $1'
-
-    # load our version
-    Invoke-Expression "function Write-Host { $content }"
+function Get-LogDir {
+    "C:\LogFiles"
 }
 
-function Invoke-RemoteScriptInParallel {
-    param([System.Management.Automation.Runspaces.PSSession[]] $sessions, [scriptblock] $script)
+function Get-LogPath {
+    param([string]$name)
 
-    $job = Invoke-Command -session $sessions {
+    return "$(Get-LogDir)\$($name).log"
+}
+
+function Init-LogFiles {
+    param([string []] $nodes)
+    $nodes | % { New-Item (Get-LogPath $_) -type file -force } | Out-Null
+}
+
+function Invoke-DeployPhase {
+    param([System.Management.Automation.Runspaces.PSSession[]] $session, [scriptblock] $script)
+
+    $job = Invoke-Command -session $session {
         param($script)
 
         $scriptblock = $ExecutionContext.InvokeCommand.NewScriptBlock($script)
@@ -42,7 +42,7 @@ function Invoke-RemoteScriptInParallel {
 
     $outputs = Receive-Job $job
     $outputs | % {
-        $_ >> .\$($_.PSComputerName).output
+        $_ >> (Get-LogPath $_.PSComputerName)
     }
 
     $exceptions = @()
@@ -55,29 +55,74 @@ function Invoke-RemoteScriptInParallel {
 
 function Get-NodeNames {
     $nodes = @("node1","node2")
+    return ,$nodes
+}
 
-    $nodes | % { "" > .\$($_).output }
+$injectEnvironmentVariables = {
+    # Set all environment variables based on the input JSON string
+    $env:SITE_NAME="RaveProdTestSite"
+    $env:PACKAGE_DIR="\\hdcsharedmachine\C$\packages\Rave\2015.2.0"
+    $env:DEPLOY_ID ="yyyyMMddhhmmss-buildid-increment"
+    $env:RELEASE_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\release\$env:DEPLOY_ID"
+    $env:ARTIFACTS_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\artifacts\$env:DEPLOY_ID"
+}
 
-    return $nodes
+$installDeploymentScripts = {
+    $packagePath = "$env:PACKAGES_DIR\Medidata.AdminProcess.zip"
+    $artifactPath = "$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip"
+    $releaseDir = "$env:RELEASE_DIR\Medidata.AdminProcess"
+
+    if (-not (Test-path $packagePath)) { throw "Cannot find path '$packagePath'" }
+
+    # Download deployment script package
+    New-Item $releaseDir -type directory -force | Out-Null
+    New-Item $artifactPath -type file -force | Out-Null
+    Copy-Item $packagePath $artifactPath -force
+
+    # Unzip deployment script package
+    $shell = new-object -com shell.application
+    $shell.namespace($releaseDir).CopyHere($shell.namespace($artifactPath).Items(), 1556)
+
+    # Import the deploy tasks
+    . $releaseDir\deploy_tasks_prod.ps1
 }
 
 function Invoke-DeployWorkflow {
     $nodes = Get-NodeNames
+    Init-Logfiles $nodes
+
     $sessions = New-PSSession -ComputerName $nodes
 
     try {
-        Invoke-RemoteScriptInParallel -sessions $sessions -script $replacewritehost
-        Invoke-RemoteScriptInParallel -sessions $sessions -script $setupSession
-        #Invoke-RemoteScriptInParallel $testThings
+        # 0. Prepare node to run the Rave deployment scripts
+        Invoke-DeployPhase -session $sessions -script $setupSession
+        Invoke-DeployPhase -session $sessions -script $injectEnvironmentVariables
+        Invoke-DeployPhase -session $sessions -script $installDeploymentScripts
 
-        Invoke-RemoteScriptInParallel -sessions $sessions -script {
-            itk stop
-            #     itk uninstall
-            #     itk config, install, start
+        Invoke-DeployPhase -session $sessions -script {
+            # 1. Download, unpack and configure corresponding components on the underlying node
+            itk -task download,unpack,config -role auto
+            if (is-master) { itk -task download,unpack,config -role $db }
+        }
+
+        Invoke-DeployPhase -session $sessions -script {
+            # 2. Stop existing services on the underlying node
+            itk -task stop -role auto
+        }
+
+        Invoke-DeployPhase -session $sessions -script {
+            # 3. Reinstall services on the udnerlying node
+            if (is-master) { itk -task install -role $db }
+            itk -task uninstall,install -role auto
+        }
+
+        Invoke-DeployPhase -session $sessions -script {
+            # 4. Start services on the underlying node
+            itk -task start -role auto
         }
     }
     catch {
-        Write-Host "Something bad happened."
+        Write-Output "Something bad happened."
         Write-Error $_
     }
 
