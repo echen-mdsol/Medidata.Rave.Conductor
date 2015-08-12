@@ -106,7 +106,7 @@ function Get-EnvScriptFromDatabag {
 }
 
 function Invoke-DeployWorkflow {
-    $databag = Get-DatabagFromJson (Get-Content .\databag.json -Raw)
+    $databag = Get-DatabagFromJson (Get-Content .\databag_example.json -Raw)
 
     $nodes = Get-NodeNames
     Init-Logfiles $nodes

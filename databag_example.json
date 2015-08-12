@@ -1,0 +1,7 @@
+{
+    "SITE_NAME": "RaveProdTestSite",
+    "PACKAGE_DIR": "\\\\hdcsharedmachine\\packages\\Rave\\2015.2.0",
+    "DEPLOY_ID": "yyyyMMddhhmmss-buildid",
+    "RELEASE_DIR": "C:\\MedidataApp\\Rave\\Sites\\$env:SITE_NAME\\release\\$env:DEPLOY_ID",
+    "ARTIFACTS_DIR": "C:\\MedidataApp\\Rave\\Sites\\$env:SITE_NAME\\artifacts\\$env:DEPLOY_ID"
+}
