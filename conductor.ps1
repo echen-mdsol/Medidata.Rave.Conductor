@@ -58,15 +58,6 @@ function Get-NodeNames {
     return ,$nodes
 }
 
-$injectEnvironmentVariables = {
-    # Set all environment variables based on the input JSON string
-    $env:SITE_NAME="RaveProdTestSite"
-    $env:PACKAGE_DIR="\\hdcsharedmachine\C$\packages\Rave\2015.2.0"
-    $env:DEPLOY_ID ="yyyyMMddhhmmss-buildid-increment"
-    $env:RELEASE_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\release\$env:DEPLOY_ID"
-    $env:ARTIFACTS_DIR="C:\MedidataApp\Rave\Sites\$env:SITE_NAME\artifacts\$env:DEPLOY_ID"
-}
-
 $installDeploymentScripts = {
     $packagePath = "$env:PACKAGES_DIR\Medidata.AdminProcess.zip"
     $artifactPath = "$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip"
@@ -96,13 +87,12 @@ function Get-DatabagFromJson {
 function Get-EnvScriptFromDatabag {
     param([PSCustomObject]$databag)
 
-    $envVariables = @()
-    $databag | Get-Member -MemberType NoteProperty | % {
-        $envVariables +=
-            "[environment]::SetEnvironmentVariable(`"$($_.Name)`", `"$($databag.$($_.Name))`", `"Process`")"
+    # Get the key/value pairs from the databag and create a script to set them as environment variables
+    $envVariables = $databag | Get-Member -MemberType NoteProperty | % {
+        "[environment]::SetEnvironmentVariable(`"$($_.Name)`", `"$($databag.$($_.Name))`", `"Process`")"
     }
 
-    [scriptblock]::Create($envVariables -join "`n")
+    return [scriptblock]::Create($envVariables -join "`n")
 }
 
 function Invoke-DeployWorkflow {
