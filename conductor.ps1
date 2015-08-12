@@ -87,16 +87,38 @@ $installDeploymentScripts = {
     . $releaseDir\deploy_tasks_prod.ps1
 }
 
+function Get-DatabagFromJson {
+    param([string]$databagJson)
+
+    return ConvertFrom-Json $databagJson
+}
+
+function Get-EnvScriptFromDatabag {
+    param([PSCustomObject]$databag)
+
+    $envVariables = @()
+    $databag | Get-Member -MemberType NoteProperty | % {
+        $envVariables +=
+            "[environment]::SetEnvironmentVariable(`"$($_.Name)`", `"$($databag.$($_.Name))`", `"Process`")"
+    }
+
+    [scriptblock]::Create($envVariables -join "`n")
+}
+
 function Invoke-DeployWorkflow {
+    $databag = Get-DatabagFromJson (Get-Content .\databag.json -Raw)
+
     $nodes = Get-NodeNames
     Init-Logfiles $nodes
 
     $sessions = New-PSSession -ComputerName $nodes
 
+    $environmentVariables = Get-EnvScriptFromDatabag ($databag)
+    
     try {
         # 0. Prepare node to run the Rave deployment scripts
         Invoke-DeployPhase -session $sessions -script $setupSession
-        Invoke-DeployPhase -session $sessions -script $injectEnvironmentVariables
+        Invoke-DeployPhase -session $sessions -script $environmentVariables
         Invoke-DeployPhase -session $sessions -script $installDeploymentScripts
 
         Invoke-DeployPhase -session $sessions -script {
