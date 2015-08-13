@@ -59,16 +59,12 @@ function Get-NodeNames {
 }
 
 $installDeploymentScripts = {
-    $packagePath = "$env:PACKAGES_DIR\Medidata.AdminProcess.zip"
     $artifactPath = "$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip"
     $releaseDir = "$env:RELEASE_DIR\Medidata.AdminProcess"
 
-    if (-not (Test-path $packagePath)) { throw "Cannot find path '$packagePath'" }
-
+    
     # Download deployment script package
     New-Item $releaseDir -type directory -force | Out-Null
-    New-Item $artifactPath -type file -force | Out-Null
-    Copy-Item $packagePath $artifactPath -force
 
     # Unzip deployment script package
     $shell = new-object -com shell.application
@@ -88,8 +84,9 @@ function Get-EnvScriptFromDatabag {
     param([PSCustomObject]$databag)
 
     # Get the key/value pairs from the databag and create a script to set them as environment variables
-    $envVariables = $databag | Get-Member -MemberType NoteProperty | % {
-        "[environment]::SetEnvironmentVariable(`"$($_.Name)`", `"$($databag.$($_.Name))`", `"Process`")"
+    $envVariables = $databag.psobject.properties.name | % {
+        #Write-Output "$_.Name = $databag.$($_.Name)"
+        "[environment]::SetEnvironmentVariable(`"$_`", `"$($databag.$($_))`")"
     }
 
     return [scriptblock]::Create($envVariables -join "`n")
@@ -103,7 +100,7 @@ function Invoke-DeployWorkflow {
 
     $sessions = New-PSSession -ComputerName $nodes
 
-    $environmentVariables = Get-EnvScriptFromDatabag ($databag)
+    $environmentVariables = Get-EnvScriptFromDatabag ($databag) | Out-String
     
     try {
         # 0. Prepare node to run the Rave deployment scripts
