@@ -7,6 +7,20 @@ $setupSession = {
     $DebugPreference = "continue"
 }
 
+$replacewritehost = {
+    remove-item function:write-host -ea 0
+
+    # create a proxy for write-host
+    $metaData = New-Object System.Management.Automation.CommandMetaData (Get-Command 'Microsoft.PowerShell.Utility\Write-Host')
+    $proxy = [System.Management.Automation.ProxyCommand]::create($metaData)
+
+    # change its behavior
+    $content = $proxy -replace '(\$steppablePipeline.Process)', 'Write-Debug (Out-String -inputobject $Object -stream); $1'
+
+    # load our version
+    Invoke-Expression "function Write-Host { $content }"
+}
+
 function Get-LogDir {
     "C:\LogFiles"
 }
@@ -38,10 +52,7 @@ function Invoke-DeployPhase {
         }
     } -ArgumentList ($script) -AsJob
 
-    Wait-Job $job | Out-Null
-
-    $outputs = Receive-Job $job
-    $outputs | % {
+    Receive-Job $job -Wait | % {
         $_ >> (Get-LogPath $_.PSComputerName)
     }
 
@@ -62,8 +73,7 @@ $installDeploymentScripts = {
     $artifactPath = "$env:ARTIFACTS_DIR\Medidata.AdminProcess.zip"
     $releaseDir = "$env:RELEASE_DIR\Medidata.AdminProcess"
 
-    
-    # Download deployment script package
+    # Create deployment script package directory
     New-Item $releaseDir -type directory -force | Out-Null
 
     # Unzip deployment script package
@@ -85,27 +95,37 @@ function Get-EnvScriptFromDatabag {
 
     # Get the key/value pairs from the databag and create a script to set them as environment variables
     $envVariables = $databag.psobject.properties.name | % {
-        #Write-Output "$_.Name = $databag.$($_.Name)"
+        # Write-Host "$_=$($databag.$($_))"
         "[environment]::SetEnvironmentVariable(`"$_`", `"$($databag.$($_))`")"
     }
 
     return [scriptblock]::Create($envVariables -join "`n")
 }
 
+function Validate-Databag {
+    param([PSCustomObject]$databag)
+    
+    $databag.psobject.properties.name | % {
+        "$_=$($databag.$($_))"
+    }
+}
+
 function Invoke-DeployWorkflow {
     $databag = Get-DatabagFromJson (Get-Content .\databag_example.json -Raw)
-
+    Validate-Databag $databag
+    
     $nodes = Get-NodeNames
     Init-Logfiles $nodes
 
     $sessions = New-PSSession -ComputerName $nodes
 
-    $environmentVariables = Get-EnvScriptFromDatabag ($databag) | Out-String
+    $injectEnvVariables = Get-EnvScriptFromDatabag ($databag)
     
     try {
         # 0. Prepare node to run the Rave deployment scripts
         Invoke-DeployPhase -session $sessions -script $setupSession
-        Invoke-DeployPhase -session $sessions -script $environmentVariables
+        Invoke-DeployPhase -session $sessions -script $replaceWriteHost
+        Invoke-DeployPhase -session $sessions -script $injectEnvVariables
         Invoke-DeployPhase -session $sessions -script $installDeploymentScripts
 
         Invoke-DeployPhase -session $sessions -script {
