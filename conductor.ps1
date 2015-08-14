@@ -104,10 +104,13 @@ function Get-EnvScriptFromDatabag {
 
 function Validate-Databag {
     param([PSCustomObject]$databag)
-    
+
+    # Output the databag properties.    
     $databag.psobject.properties.name | % {
         "$_=$($databag.$($_))"
     }
+    
+    # Validate the databag properties.
 }
 
 function Invoke-DeployWorkflow {
@@ -117,7 +120,7 @@ function Invoke-DeployWorkflow {
     $nodes = Get-NodeNames
     Init-Logfiles $nodes
 
-    $sessions = New-PSSession -ComputerName $nodes
+    $sessions = New-PSSession -ComputerName $nodes -erroraction stop
 
     $injectEnvVariables = Get-EnvScriptFromDatabag ($databag)
     
