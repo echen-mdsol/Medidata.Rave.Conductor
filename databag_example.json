@@ -19,7 +19,7 @@
     "RAVE_WEB_SERVER_NAMES_AND_CORE_SERVER_NAMES": "node1=node2,node2=node2",
     "RAVE_REPORTING_VIEWER_DEPLOY_INFOS": "node1=Viewer1=View1Uniquename,node2=Viewer2=View2Uniquename",
     
-    "RAVE_SITE_NAME": "RaveDev",
+    "RAVE_SITE_NAME": "$env:SITE_NAME",
     
     "RAVE_USE_SQL_AUTH": true,
     "RAVE_DB_DEPLOY_USER": "sa",

@@ -4,7 +4,6 @@ param(
 
 $setupSession = {
     Set-ExecutionPolicy -ExecutionPolicy Unrestricted
-    $DebugPreference = "continue"
 }
 
 $replacewritehost = {
@@ -15,7 +14,7 @@ $replacewritehost = {
     $proxy = [System.Management.Automation.ProxyCommand]::create($metaData)
 
     # change its behavior
-    $content = $proxy -replace '(\$steppablePipeline.Process)', 'Write-Debug (Out-String -inputobject $Object -stream); $1'
+    $content = $proxy -replace '(\$steppablePipeline.Process)', 'Write-Verbose (Out-String -inputobject $Object -stream) -Verbose; $1'
 
     # load our version
     Invoke-Expression "function Write-Host { $content }"
@@ -44,7 +43,10 @@ function Invoke-DeployPhase {
 
         $scriptblock = $ExecutionContext.InvokeCommand.NewScriptBlock($script)
         try {
-            . $scriptblock *>&1
+            . $scriptblock *>&1 | % {
+                Get-Date -format "[yyy-MM-dd HH:mm:ss]"
+                $_
+            }
         }
         catch {
             Write-Output $_
